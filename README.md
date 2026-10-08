@@ -4,7 +4,7 @@
 
 Agent Skills from [Hexclave](https://hexclave.com) for coding agents (Claude Code, Cursor, Codex, OpenCode, Gemini CLI and anything else that reads the [Agent Skills spec](https://agentskills.io)).
 
-Each skill lives in `skills/<skill-name>/` with its own `SKILL.md` and supporting files, the same multi-skill layout as [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) and [anthropics/skills](https://github.com/anthropics/skills).
+Skills are grouped by category under `skills/<category>/<skill-name>/`, each with its own `SKILL.md` and supporting files (for example `skills/deployments/` for Hexclave Deployments). This is the catalog layout the `skills` CLI discovers, and the same multi-skill style as [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) and [anthropics/skills](https://github.com/anthropics/skills).
 
 ## Install
 
@@ -34,7 +34,7 @@ Claude Code plugin marketplace:
 
 | Skill | What it does |
 |---|---|
-| [`hexclave-otel-clickhouse`](skills/hexclave-otel-clickhouse) | Self-hosted observability on Hexclave Deployments that replaces New Relic. Deploys ClickHouse, an OpenTelemetry Collector gateway (OTLP/HTTP with bearer-token auth) and an rrweb session-replay ingest service with a built-in player, then verifies them end to end. |
+| [`hexclave-otel-clickhouse`](skills/deployments/hexclave-otel-clickhouse) | Self-hosted observability on Hexclave Deployments that replaces New Relic. Deploys ClickHouse, an OpenTelemetry Collector gateway (OTLP/HTTP with bearer-token auth) and an rrweb session-replay ingest service with a built-in player, then verifies them end to end. |
 
 ### hexclave-otel-clickhouse
 
@@ -44,7 +44,7 @@ Three services in one Hexclave deployment group:
 - `otel-gateway`: OTel Collector contrib, OTLP/HTTP in, bearer tokens, disk-backed queue, public HTTPS
 - `replay-ingest`: Bun service for rrweb chunks, session list and player, public HTTPS
 
-It ships the deploy file, Dockerfiles, ClickHouse schema and retention scripts, a Node OTel bootstrap, a masked rrweb recorder, and a deploy script with dry-run, check, apply, verify, logs and pause/resume modes. Measured throughput, compression and sizing are in [`references/costs.md`](skills/hexclave-otel-clickhouse/references/costs.md).
+It ships the deploy file, Dockerfiles, ClickHouse schema and retention scripts, a Node OTel bootstrap, a masked rrweb recorder, and a deploy script with dry-run, check, apply, verify, logs and pause/resume modes. Measured throughput, compression and sizing are in [`references/costs.md`](skills/deployments/hexclave-otel-clickhouse/references/costs.md).
 
 You need a Hexclave project on a paid plan plus `HEXCLAVE_PROJECT_ID` and `HEXCLAVE_SECRET_SERVER_KEY`. Deploying creates billable resources.
 
@@ -52,12 +52,12 @@ You need a Hexclave project on a paid plan plus `HEXCLAVE_PROJECT_ID` and `HEXCL
 
 ```bash
 pip install skills-ref
-agentskills validate skills/hexclave-otel-clickhouse
+agentskills validate skills/deployments/hexclave-otel-clickhouse
 ```
 
 ## Contributing
 
-Add a folder under `skills/` with a `SKILL.md` that follows the [spec](https://agentskills.io/specification) (`name` must match the folder name), add it to the table above, to `skills.sh.json` and to `.claude-plugin/marketplace.json`, and run the validator.
+Add a folder under `skills/<category>/` (for example `skills/deployments/`) with a `SKILL.md` that follows the [spec](https://agentskills.io/specification) (`name` must match the folder name), add it to the table above, to `skills.sh.json` and to `.claude-plugin/marketplace.json`, and run the validator.
 
 ## License
 

@@ -14,7 +14,7 @@
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/hexclave-otel-clickhouse"
+        "./skills/deployments/hexclave-otel-clickhouse"
       ]
     }
   ]
