@@ -1,0 +1,157 @@
+# OTel gateway for Hexclave deployments -> ClickHouse.
+# Image: otel/opentelemetry-collector-contrib:0.162.0 (see Dockerfile). Validate locally with:
+#   otelcol-contrib validate --config=otel-collector.yaml
+#
+# Env (set by hexclave/gateway/entrypoint.sh from the Hexclave service env):
+#   CLICKHOUSE_ENDPOINT          tcp://<clickhouse private address>:9000?dial_timeout=10s (never public)
+#   CLICKHOUSE_OTEL_PASSWORD     password of the `otel_writer` ClickHouse user
+#   OTEL_INGEST_TOKENS           comma-separated bearer tokens, written to /etc/otelcol-contrib/tokens.txt
+#   OTEL_QUEUE_DIR               file queue dir (only when OTEL_QUEUE_STORAGE=file)
+#   OTEL_QUEUE_SIZE              sending queue length in requests (default 5000)
+#   OTEL_GATEWAY_NAME / OTEL_GATEWAY_REGION   stamped on every resource
+#
+# Queue storage: the file_storage queue survives ClickHouse outages AND collector restarts, but
+# needs a real disk. Hexclave serverless (Cloud Run on GCP) has no disk and an in-memory /tmp,
+# so the entrypoint strips the file_storage lines when OTEL_QUEUE_STORAGE=memory (the default
+# there): the queue then survives ClickHouse outages but not instance replacement.
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # One token per line in tokens.txt: "<token>  # <who uses it>". Clients send
+  # `Authorization: Bearer <token>`. Rotate by adding the new token, redeploying clients, then removing the old one.
+  bearertokenauth/ingest:
+    scheme: Bearer
+    filename: /etc/otelcol-contrib/tokens.txt
+
+  # Durable, crash-safe sending queue on a persistent disk (removed by the entrypoint for memory mode).
+  file_storage/queue:
+    directory: ${env:OTEL_QUEUE_DIR}
+    create_directory: true
+    timeout: 2s
+    fsync: false
+    compaction:
+      on_start: true
+      on_rebound: true
+      directory: ${env:OTEL_QUEUE_DIR}
+      cleanup_on_start: true
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+        auth:
+          authenticator: bearertokenauth/ingest
+      http:
+        endpoint: 0.0.0.0:4318
+        auth:
+          authenticator: bearertokenauth/ingest
+        # Uncomment to accept browser OTel (@opentelemetry/sdk-trace-web) directly. Use a separate
+        # low-privilege token for browsers since it ships in page source.
+        # cors:
+        #   allowed_origins: ["https://*.built-with-hexclave.com", "https://app.hexclave.com"]
+        #   allowed_headers: ["Authorization"]
+
+processors:
+  # First in every pipeline: refuse data (clients get 503/retry) before the instance OOMs.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+  # Stamp where the data came in, useful when you later run several gateways/regions.
+  resource/gateway:
+    attributes:
+      - key: hexclave.ingest.gateway
+        value: ${env:OTEL_GATEWAY_NAME}
+        action: upsert
+      - key: hexclave.ingest.region
+        value: ${env:OTEL_GATEWAY_REGION}
+        action: upsert
+
+  # Cheap insurance against obvious secrets in attributes. Extend for your own keys.
+  attributes/scrub:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: db.statement
+        action: hash
+
+exporters:
+  clickhouse:
+    endpoint: ${env:CLICKHOUSE_ENDPOINT}
+    database: otel
+    username: otel_writer
+    password: ${env:CLICKHOUSE_OTEL_PASSWORD}
+    # Schema (with tiered TTL) is owned by assets/sql/otel-schema.sql; never let N gateways race on DDL.
+    create_schema: false
+    async_insert: true
+    compress: lz4
+    timeout: 15s
+    logs_table_name: otel_logs
+    traces_table_name: otel_traces
+    metrics_tables:
+      gauge:
+        name: otel_metrics_gauge
+      sum:
+        name: otel_metrics_sum
+      summary:
+        name: otel_metrics_summary
+      histogram:
+        name: otel_metrics_histogram
+      exponential_histogram:
+        name: otel_metrics_exp_histogram
+    # Batching lives in the exporter's queue (upstream recommendation; no separate batch processor).
+    sending_queue:
+      enabled: true
+      storage: file_storage/queue
+      num_consumers: 8
+      sizer: requests
+      queue_size: ${env:OTEL_QUEUE_SIZE:-5000}
+      block_on_overflow: false
+      batch:
+        sizer: items
+        flush_timeout: 5s
+        min_size: 20000
+        max_size: 100000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 0s   # keep retrying while ClickHouse is down; the queue absorbs it, then memory_limiter pushes back
+
+  # Handy while debugging: add `debug` to a pipeline's exporters temporarily.
+  debug:
+    verbosity: basic
+
+service:
+  extensions: [health_check, bearertokenauth/ingest, file_storage/queue]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/gateway, attributes/scrub]
+      exporters: [clickhouse]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/gateway, attributes/scrub]
+      exporters: [clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/gateway]
+      exporters: [clickhouse]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: normal
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

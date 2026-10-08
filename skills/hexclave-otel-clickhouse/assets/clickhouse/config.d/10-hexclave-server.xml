@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!-- Server settings for the Hexclave observability ClickHouse. Mounted into config.d/. -->
+<clickhouse>
+    <logger>
+        <level>information</level>
+        <console>1</console>
+    </logger>
+
+    <!-- Listen on all interfaces inside the container. On Hexclave's GCP runtime the VM has no
+         Internet ingress (firewall admits only the runtime subnet 10.128.0.0/20) and only the
+         declared ports are published; users.d also pins every user to private networks. -->
+    <listen_host>::</listen_host>
+
+    <!-- Every new MergeTree table lands on the tiered policy (hot local disk -> object storage). -->
+    <merge_tree>
+        <storage_policy>tiered</storage_policy>
+    </merge_tree>
+
+    <!-- Prometheus endpoint (not a declared port: reachable only from inside the container/VM). -->
+    <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+    </prometheus>
+
+    <!-- Keep ClickHouse's own system logs from eating the hot volume. -->
+    <query_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </query_log>
+    <part_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </part_log>
+    <trace_log>
+        <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    </trace_log>
+    <text_log>
+        <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    </text_log>
+    <metric_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </metric_log>
+    <asynchronous_metric_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </asynchronous_metric_log>
+    <processors_profile_log>
+        <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    </processors_profile_log>
+</clickhouse>

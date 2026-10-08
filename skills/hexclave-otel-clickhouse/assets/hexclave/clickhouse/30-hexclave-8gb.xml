@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- Hexclave Deployments caps a "server" at 8GB (2 dedicated CPUs on the default runtime).
+     Shrink the caches that default to multi-GB so merges and inserts keep headroom. -->
+<clickhouse>
+    <max_server_memory_usage_to_ram_ratio>0.75</max_server_memory_usage_to_ram_ratio>
+    <mark_cache_size>1073741824</mark_cache_size>
+    <index_mark_cache_size>268435456</index_mark_cache_size>
+    <uncompressed_cache_size>0</uncompressed_cache_size>
+    <max_concurrent_queries>50</max_concurrent_queries>
+</clickhouse>

@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!--
+  Tiered storage: hot parts on the local persistent disk (disk "default"), cold parts in an
+  S3-compatible bucket through a local filesystem cache. Tables move parts to the "cold"
+  volume with `TTL ... TO VOLUME 'cold'` (see sql/otel-schema.sql).
+
+  Env (all required; from_env has no defaults):
+    CH_S3_ENDPOINT        path-style, bucket + prefix, trailing slash:
+                            GCS: https://storage.googleapis.com/<bucket>/clickhouse/
+                            R2:  https://<account_id>.r2.cloudflarestorage.com/<bucket>/clickhouse/
+    CH_S3_REGION          "auto" works for both GCS (XML API, HMAC/SigV4) and R2
+    CH_S3_BATCH_DELETE    "false" for GCS (no S3 DeleteObjects), "true" for R2 / AWS S3 / MinIO
+    AWS_ACCESS_KEY_ID     GCS: HMAC access id of a service account; R2: R2 API token access key
+    AWS_SECRET_ACCESS_KEY the matching secret
+    CH_S3_CACHE_SIZE      e.g. 200Gi; must fit on the volume next to the hot tier
+-->
+<clickhouse>
+    <storage_configuration>
+        <disks>
+            <objstore>
+                <type>s3</type>
+                <endpoint from_env="CH_S3_ENDPOINT"/>
+                <region from_env="CH_S3_REGION"/>
+                <access_key_id from_env="AWS_ACCESS_KEY_ID"/>
+                <secret_access_key from_env="AWS_SECRET_ACCESS_KEY"/>
+                <!-- GCS has no multi-object delete (issuetracker 162653700); ClickHouse docs say set
+                     false for GCS. With false every removed object is its own DELETE (free on GCS/R2/S3). -->
+                <support_batch_delete from_env="CH_S3_BATCH_DELETE"/>
+                <metadata_path>/var/lib/clickhouse/disks/objstore/</metadata_path>
+            </objstore>
+            <objstore_cache>
+                <type>cache</type>
+                <disk>objstore</disk>
+                <path>/var/lib/clickhouse/disks/objstore_cache/</path>
+                <max_size from_env="CH_S3_CACHE_SIZE"/>
+            </objstore_cache>
+        </disks>
+        <policies>
+            <tiered>
+                <volumes>
+                    <hot>
+                        <disk>default</disk>
+                    </hot>
+                    <cold>
+                        <disk>objstore_cache</disk>
+                        <!-- Parts in object storage are immutable by then; re-merging only burns requests. -->
+                        <prefer_not_to_merge>true</prefer_not_to_merge>
+                    </cold>
+                </volumes>
+                <!-- Safety valve: if the hot disk drops below 10% free, move parts to cold early. -->
+                <move_factor>0.1</move_factor>
+            </tiered>
+        </policies>
+    </storage_configuration>
+</clickhouse>

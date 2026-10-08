@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+  Volume-only storage (no bucket): the "tiered" policy has just the local "hot" volume, and the
+  schema is rendered without `TO VOLUME 'cold'` (CH_STORAGE_MODE=local), so TTLs only delete.
+  Selected by hexclave/clickhouse/entrypoint.sh when CH_S3_ENDPOINT is unset.
+  Switching to the S3 policy later is supported (a policy may gain a volume); then run
+  scripts/set-retention.sh with CH_STORAGE_MODE=s3 to add the TO VOLUME 'cold' moves.
+-->
+<clickhouse>
+    <storage_configuration>
+        <policies>
+            <tiered>
+                <volumes>
+                    <hot>
+                        <disk>default</disk>
+                    </hot>
+                </volumes>
+            </tiered>
+        </policies>
+    </storage_configuration>
+</clickhouse>

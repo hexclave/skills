@@ -1,0 +1,21 @@
+{
+  "name": "hexclave-skills",
+  "owner": {
+    "name": "Hexclave"
+  },
+  "metadata": {
+    "description": "Agent Skills from Hexclave",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "hexclave-deployments",
+      "description": "Skills for running infrastructure on Hexclave Deployments, starting with self-hosted observability (OTel + ClickHouse + rrweb session replay).",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/hexclave-otel-clickhouse"
+      ]
+    }
+  ]
+}

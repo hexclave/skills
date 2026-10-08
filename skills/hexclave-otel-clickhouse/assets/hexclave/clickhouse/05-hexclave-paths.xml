@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- Hexclave Deployments only: keep all ClickHouse state in a child of the neutral /data mount
+     (the platform recommends never mounting over an image's own data dir). -->
+<clickhouse>
+    <path replace="1">/data/clickhouse/</path>
+    <tmp_path replace="1">/data/clickhouse/tmp/</tmp_path>
+    <user_files_path replace="1">/data/clickhouse/user_files/</user_files_path>
+    <format_schema_path replace="1">/data/clickhouse/format_schemas/</format_schema_path>
+    <user_directories replace="1">
+        <users_xml><path>users.xml</path></users_xml>
+        <local_directory><path>/data/clickhouse/access/</path></local_directory>
+    </user_directories>
+</clickhouse>

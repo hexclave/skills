@@ -1,0 +1,13 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Hexclave Deployments",
+      "description": "Skills for running infrastructure on Hexclave Deployments.",
+      "skills": [
+        "hexclave-otel-clickhouse"
+      ]
+    }
+  ]
+}

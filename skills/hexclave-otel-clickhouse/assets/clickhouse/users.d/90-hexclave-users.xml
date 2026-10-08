@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<!--
+  Users for the observability stack. Passwords come from env vars (Hexclave secrets) via from_env.
+  Networks: ::1/127.0.0.1 (clickhouse-client inside the container), fdaa::/16 (direct private
+  6PN addresses) and 172.16.0.0/12 (the runtime's internal TCP proxy: service("clickhouse")
+  .hostname() goes through it, so ClickHouse sees peers as ::ffff:172.16.x.x, not fdaa::).
+  The service is private (no public port), so none of these ranges is reachable from the
+  Internet; the passwords are the real boundary between services in the project.
+-->
+<clickhouse>
+    <users>
+        <!-- Passwordless "default" stays, but only from inside the container (schema bootstrap,
+             initdb, set-retention.sh). -->
+        <default>
+            <networks replace="replace">
+                <ip>::1</ip>
+                <ip>127.0.0.1</ip>
+            </networks>
+        </default>
+
+        <admin>
+            <password from_env="CLICKHOUSE_ADMIN_PASSWORD"/>
+            <networks>
+                <ip>::1</ip>
+                <ip>127.0.0.1</ip>
+                <ip>fdaa::/16</ip>
+                <ip>172.16.0.0/12</ip>
+                <ip>::ffff:172.16.0.0/108</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <access_management>1</access_management>
+            <named_collection_control>1</named_collection_control>
+        </admin>
+
+        <!-- OTel Collector clickhouse exporter. create_schema=false, so INSERT + DESC is enough. -->
+        <otel_writer>
+            <password from_env="CLICKHOUSE_OTEL_PASSWORD"/>
+            <networks>
+                <ip>fdaa::/16</ip>
+                <ip>172.16.0.0/12</ip>
+                <ip>::ffff:172.16.0.0/108</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT, INSERT, SHOW ON otel.*</query>
+            </grants>
+        </otel_writer>
+
+        <!-- rrweb replay ingest/read service. -->
+        <replay_rw>
+            <password from_env="CLICKHOUSE_REPLAY_PASSWORD"/>
+            <networks>
+                <ip>fdaa::/16</ip>
+                <ip>172.16.0.0/12</ip>
+                <ip>::ffff:172.16.0.0/108</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT, INSERT, SHOW ON replay.*</query>
+            </grants>
+        </replay_rw>
+
+        <!-- Read-only user for HyperDX/ClickStack UI, Grafana or ad-hoc SQL. -->
+        <reader>
+            <password from_env="CLICKHOUSE_READER_PASSWORD"/>
+            <networks>
+                <ip>fdaa::/16</ip>
+                <ip>172.16.0.0/12</ip>
+                <ip>::ffff:172.16.0.0/108</ip>
+            </networks>
+            <profile>readonly_ui</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT, SHOW ON otel.*</query>
+                <query>GRANT SELECT, SHOW ON replay.*</query>
+            </grants>
+        </reader>
+    </users>
+
+    <profiles>
+        <readonly_ui>
+            <!-- readonly=2 still lets the client change session settings (HyperDX needs that). -->
+            <readonly>2</readonly>
+            <max_execution_time>120</max_execution_time>
+            <max_memory_usage>16000000000</max_memory_usage>
+        </readonly_ui>
+    </profiles>
+</clickhouse>
