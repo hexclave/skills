@@ -10,11 +10,12 @@
   "plugins": [
     {
       "name": "hexclave-deployments",
-      "description": "Skills for running infrastructure on Hexclave Deployments, starting with self-hosted observability (OTel + ClickHouse + rrweb session replay).",
+      "description": "Skills for running infrastructure on Hexclave Deployments: self-hosted observability (OTel + ClickHouse + rrweb session replay) and private admin dashboards behind Hexclave sign-in.",
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/deployments/hexclave-otel-clickhouse"
+        "./skills/deployments/hexclave-otel-clickhouse",
+        "./skills/deployments/hexclave-admin-dashboard"
       ]
     }
   ]
