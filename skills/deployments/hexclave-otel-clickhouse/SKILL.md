@@ -1,6 +1,6 @@
 ---
 name: hexclave-otel-clickhouse
-description: Self-hosted observability on Hexclave Deployments that replaces New Relic. Deploys ClickHouse, an OpenTelemetry Collector gateway (OTLP/HTTP with bearer-token auth) and an rrweb session-replay ingest service with a built-in player, then verifies them end to end. Use when the user wants to send OTel traces, logs or metrics from apps hosted on Hexclave, drop New Relic, Datadog or PostHog, store telemetry or product analytics in ClickHouse, record and replay browser sessions with rrweb, build a private dashboard on that ClickHouse, or operate such a stack (domains, secrets, logs, single-service deploys) through the Hexclave CLI.
+description: Self-hosted observability on Hexclave Deployments that replaces New Relic. Deploys ClickHouse, an OpenTelemetry Collector gateway (OTLP/HTTP with bearer-token auth) and an rrweb session-replay ingest service with a built-in player, then verifies them end to end. Use when the user wants to send OTel traces, logs or metrics from apps hosted on Hexclave, drop New Relic, Datadog or PostHog, migrate product analytics off PostHog Cloud, store telemetry or product analytics in ClickHouse, record and replay browser sessions with rrweb, build a private dashboard on that ClickHouse, or operate such a stack (domains, secrets, logs, single-service deploys) through the Hexclave CLI.
 license: MIT
 compatibility: Needs a Hexclave project on a paid plan (always-on 8GB server, 500GB volume), HEXCLAVE_PROJECT_ID and HEXCLAVE_SECRET_SERVER_KEY, bash, curl, python3 and Node 20+ (npx). Docker, Bun, Go (telemetrygen) and Playwright are only needed for local tests. An S3-compatible bucket is optional.
 metadata:
@@ -139,6 +139,16 @@ reader SQL to a private collector, ClickHouse and SeaweedFS. It also adds GeoIP 
 [references/variants.md](references/variants.md) and `assets/edge/nginx-telemetry.conf`. Keep the
 default token-authenticated gateway for traces from apps on other networks.
 
+## Migrating from PostHog Cloud
+
+[references/posthog-migration.md](references/posthog-migration.md) covers a migration that ran in production
+(76,700 events, counts equal to Cloud's):
+- exporting through the PostHog MCP's `execute-sql`, which has a 500-row limit and a response cap of about 6.5 MB;
+- loading with `scripts/posthog-migration/import-posthog.py`, which is safe to re-run;
+- cutting over with overlapping deltas selected by receive time (`created_at`);
+- keeping visitor ids and experiment variants with `assets/client/posthog-compat.ts`, which uses PostHog's own hash;
+- querying old and new data through one PostHog-shaped view.
+
 ## Configuration
 
 | Env (at deploy time) | Default | Effect |
@@ -238,5 +248,6 @@ Measured numbers (throughput, compression, cold reads) and sizing: [references/c
 - `assets/client/`: Node OTel bootstrap, browser rrweb recorder.
 - `assets/dashboard/`: private dashboard pieces (ClickHouse gate and cache, Hexclave Auth check, SPA server, Dockerfile,
   `.dockerignore` template, deploy file and script).
+- `scripts/posthog-migration/`: PostHog Cloud history importer and table. `assets/client/posthog-compat.ts`: posthog-js visitor ids and flag bucketing.
 - `assets/edge/nginx-telemetry.conf`: same-origin ingest and reader proxy for the variant. `assets/gateway/fetch-geoip.mjs`: DB-IP Lite for the geoip processor.
 - `scripts/hexclave-deploy.sh`: dry run, check, apply, verify, logs. `scripts/set-retention.sh`. `scripts/replay-ingest/`: service source.
