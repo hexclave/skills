@@ -42,6 +42,37 @@ TTL: `REPLAY_TTL_DAYS` (default = `OTEL_TTL_DAYS`) on every replay table, `chunk
 | `replay_rw` | `CLICKHOUSE_REPLAY_PASSWORD` | SELECT, INSERT, SHOW on `replay.*` | localhost + fdaa::/16 |
 | `reader` | `CLICKHOUSE_READER_PASSWORD` | SELECT, SHOW on `otel.*`, `replay.*`; readonly profile | localhost + fdaa::/16 |
 
+## Typed columns for hot attributes
+
+The exporter's schema already materializes a few k8s resource attributes. Do the same for every
+attribute your queries filter or group on. Reading one key out of `LogAttributes` /
+`SpanAttributes` decodes the whole map row by row. On a shared-CPU box that was most of every
+query's cost (measured in production on `otel_logs`):
+
+| Read path | Server time | Read |
+|---|---|---|
+| through a view that CASTs the map | 4164 ms | 65 MB |
+| one `LogAttributes['$host']` key | 2564 ms | 1.4 MB |
+| typed column | 717 ms | 1.1 MB |
+| 90-day `uniq` visitors, map vs typed | 148 ms → 24 ms | 63.5 MB → 3.0 MB |
+
+```sql
+ALTER TABLE otel.otel_logs
+    ADD COLUMN IF NOT EXISTS Host LowCardinality(String) MATERIALIZED LogAttributes['host'],
+    ADD COLUMN IF NOT EXISTS Country LowCardinality(String) MATERIALIZED LogAttributes['country'];
+```
+
+`ADD COLUMN ... MATERIALIZED` fills new parts only. Backfill old parts once with
+`ALTER TABLE ... MATERIALIZE COLUMN ...` from the start script, and only while some active part
+lacks the column (`system.parts` vs `system.parts_columns`) and no mutation is pending. Otherwise
+every restart rewrites the whole table again. Don't put `MATERIALIZE COLUMN` in the boot schema.
+
+Two more rules that paid off:
+- Filter on the leading order-key column first (the event name, the service), then on time. That
+  alone halved a query (370 → 180 ms).
+- Don't read a `ReplacingMergeTree` with `FINAL` once its data is frozen and known to be
+  duplicate-free. `FINAL` stopped partition pruning: 820 → 370 ms and 480 → 240 ms without it.
+
 ## Useful queries
 
 ```sql
