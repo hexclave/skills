@@ -6,7 +6,8 @@
       "title": "Hexclave Deployments",
       "description": "Skills for running infrastructure on Hexclave Deployments.",
       "skills": [
-        "hexclave-otel-clickhouse"
+        "hexclave-otel-clickhouse",
+        "hexclave-admin-dashboard"
       ]
     }
   ]

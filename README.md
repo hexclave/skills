@@ -35,6 +35,7 @@ Claude Code plugin marketplace:
 | Skill | What it does |
 |---|---|
 | [`hexclave-otel-clickhouse`](skills/deployments/hexclave-otel-clickhouse) | Self-hosted observability on Hexclave Deployments that replaces New Relic. Deploys ClickHouse, an OpenTelemetry Collector gateway (OTLP/HTTP with bearer-token auth) and an rrweb session-replay ingest service with a built-in player, then verifies them end to end. |
+| [`hexclave-admin-dashboard`](skills/deployments/hexclave-admin-dashboard) | A private admin dashboard on Hexclave Deployments: Hexclave sign-in limited to a project permission, a Bun + React service that forwards to your private backend, the one-time trusted-domain and admin-account setup, and how to read and steer an AI agent's conversations from it. |
 
 ### hexclave-otel-clickhouse
 
@@ -48,11 +49,18 @@ It ships the deploy file, Dockerfiles, ClickHouse schema and retention scripts, 
 
 You need a Hexclave project on a paid plan plus `HEXCLAVE_PROJECT_ID` and `HEXCLAVE_SECRET_SERVER_KEY`. Deploying creates billable resources.
 
+### hexclave-admin-dashboard
+
+One public `serverless` service added to your app's deployment group. It checks the Hexclave session and a `project` permission on every request and forwards allowed calls to `/internal/dashboard/*` on your private backend with a bearer token, so it never holds database credentials. It ships a typechecked Bun + React + Tailwind starter, the config and deploy snippets, a backend route skeleton, a script that sets the trusted domain and creates admin accounts with the permission, and a script that signs a browser into the development project for local testing.
+
+You need a Hexclave project with Authentication, RBAC and Deploy, an existing private backend service, and `hexclave login` for the one-time setup.
+
 ## Validate
 
 ```bash
 pip install skills-ref
 agentskills validate skills/deployments/hexclave-otel-clickhouse
+agentskills validate skills/deployments/hexclave-admin-dashboard
 ```
 
 ## Contributing
