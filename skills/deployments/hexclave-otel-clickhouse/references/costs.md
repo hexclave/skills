@@ -17,6 +17,25 @@ That's 13GB of always-on memory against the project's 32GB always-on cap. To tri
 `OTEL_GATEWAY_INSTANCES=1` (1 gateway) and keep replay at min 1. ClickHouse needs the 8GB to merge
 comfortably at a few thousand rows per second with the settings in `30-hexclave-8gb.xml`.
 
+## CPU comes with the memory size
+
+You choose memory, and CPU follows from it. On the default (Fly) runtime, from
+`deploymentCpuForMemory` in `@hexclave/shared`:
+
+| Memory | Machine | CPU |
+|---|---|---|
+| 512MB–2GB | shared-cpu-1x | 1 shared |
+| 4GB | shared-cpu-2x | 2 shared (burstable) |
+| 8GB | performance-2x | 2 dedicated |
+
+Shared CPUs run on burst credit. A production 4GB ClickHouse that served dashboards showed
+`OSStealTimeNormalized` 0.86 at idle and a load average near 18 once the credit was spent, and
+queries that took 0.3 s took 7 s. Ingest alone was fine. Size anything people query interactively
+at 8GB. A redeploy refills the credit for a while, which can make a 4GB box look fine in a short test.
+
+Always-on services (effective `minInstances` ≥ 1) count against a 32GB per-project cap. Scale-to-zero
+services don't count.
+
 ## Storage math (measured)
 
 Compressed bytes per row, from the dogfood runs (ZSTD, after merges):
