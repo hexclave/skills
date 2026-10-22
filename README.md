@@ -44,7 +44,7 @@ Three services in one Hexclave deployment group:
 - `otel-gateway`: OTel Collector contrib, OTLP/HTTP in, bearer tokens, disk-backed queue, public HTTPS
 - `replay-ingest`: Bun service for rrweb chunks, session list and player, public HTTPS
 
-It ships the deploy file, Dockerfiles, ClickHouse schema and retention scripts, a Node OTel bootstrap, a masked rrweb recorder, and a deploy script with dry-run, check, apply, verify, logs and pause/resume modes. Measured throughput, compression and sizing are in [`references/costs.md`](skills/deployments/hexclave-otel-clickhouse/references/costs.md).
+It ships the deploy file, Dockerfiles, ClickHouse schema and retention scripts, a Node OTel bootstrap, a masked rrweb recorder, and a deploy script with dry-run, check, apply, verify, logs and pause/resume modes. It also covers running the stack: a private dashboard with Hexclave Auth and a ClickHouse query gate, a site-analytics variant behind one public nginx, and admin through `hexclave exec` (domains, secrets, logs, single-service deploys). Measured throughput, compression and sizing are in [`references/costs.md`](skills/deployments/hexclave-otel-clickhouse/references/costs.md).
 
 You need a Hexclave project on a paid plan plus `HEXCLAVE_PROJECT_ID` and `HEXCLAVE_SECRET_SERVER_KEY`. Deploying creates billable resources.
 

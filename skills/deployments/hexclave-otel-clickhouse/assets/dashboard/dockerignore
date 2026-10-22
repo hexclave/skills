@@ -1,0 +1,11 @@
+# Save as .dockerignore next to the Dockerfile. `hexclave deploy` applies every .gitignore AND
+# .dockerignore (git semantics, at every level) when it packages the upload, so a gitignored
+# app/ copy is only uploaded if this file re-includes it.
+*
+!Dockerfile
+!app/
+!app/**
+app/node_modules
+app/dist
+app/.output
+app/.tanstack
