@@ -39,7 +39,7 @@ export async function call<S extends z.ZodType>(schema: S, path: string, body?: 
     headers: { "content-type": "application/json", ...(authorization && { authorization }) },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const parsed = await response.json();
+  const parsed: unknown = await response.json().catch(() => null);
   if (response.status === 401) await signIn();
   if (!response.ok)
     throw new Error(errorSchema.safeParse(parsed).data?.error ?? response.statusText);

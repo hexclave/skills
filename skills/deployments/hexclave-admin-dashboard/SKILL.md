@@ -64,8 +64,9 @@ rbac: { permissions: { admin_dashboard: { description: "Use the admin dashboard"
 
 Add read and action routes under `/internal/dashboard/` on the private backend. Each one:
 
-- checks `Authorization: Bearer <token>` in constant time; reuse an internal token the backend
-  already has, or add one;
+- checks `Authorization: Bearer <token>` in constant time, against a token only the dashboard
+  holds (`DASHBOARD_API_TOKEN`). Don't reuse a token other internal clients have: whoever holds it
+  can call these routes directly, and the backend doesn't re-check the Hexclave permission;
 - validates path params and bodies (ids as UUIDs, text length);
 - returns `cache-control: no-store`;
 - logs actions with the admin's email from the `x-dashboard-admin` header. The header is only for
@@ -96,9 +97,18 @@ Start from [assets/app/](assets/app/) (Bun + React + Tailwind, typechecked):
   bundles the page at runtime in dev (`bun --hot`) and production (`NODE_ENV=production`), so
   there's no build step and both run the same `bun src/server.ts`.
 
-Run it locally with `hexclave dev -- bun --hot src/server.ts` (it injects the development
-project's keys) and the backend running. To see it signed in without email codes, use
-[scripts/dev-session.ts](scripts/dev-session.ts): it creates a test admin in the development
+Run it locally next to the backend. `hexclave dev` injects the development project's keys; the
+deploy file leaves the backend URL and token unset in dev, so pass them. Start the backend with
+the same `DASHBOARD_API_TOKEN` in its env:
+
+```bash
+export DASHBOARD_API_TOKEN="$(openssl rand -hex 24)"   # shared with the local backend
+DASHBOARD_PERMISSION=admin_dashboard DASHBOARD_BACKEND_URL=http://localhost:3000 \
+DASHBOARD_BACKEND_TOKEN="$DASHBOARD_API_TOKEN" hexclave dev -- bun run dev
+```
+
+To see it signed in without email codes, use [scripts/dev-session.ts](scripts/dev-session.ts)
+(`--dev-project <id> --permission admin_dashboard`): it creates a test admin in the development
 project and prints a `document.cookie` line to run in the page (works with browser automation).
 
 ### 4. Deploy
@@ -114,7 +124,7 @@ dashboard: {
     PORT: "8080",
     DASHBOARD_PERMISSION: "admin_dashboard",
     DASHBOARD_BACKEND_URL: isDev ? null : service("backend").url(3000),
-    DASHBOARD_BACKEND_TOKEN: isDev ? null : secret("INTERNAL_API_TOKEN"),
+    DASHBOARD_BACKEND_TOKEN: isDev ? null : secret("DASHBOARD_API_TOKEN"),
     HEXCLAVE_PROJECT_ID: hexclave.projectId,
     HEXCLAVE_API_URL: hexclave.apiUrl,
     HEXCLAVE_SECRET_SERVER_KEY: hexclave.secretServerKey,
@@ -167,5 +177,6 @@ that cost the most time:
 - Default config has no sign-in method; trusted domains and OAuth credentials are environment-level.
 - The client finishes sign-in in its constructor; don't strip `code`/`state` from the URL first.
 - `bun install` and npm can refuse a just-published `@hexclave/*` version under a minimum release
-  age: use a range (`^1.0.125`), or exclude `@hexclave/*` from the age rule.
+  age: use a range (`^1.0.125`) if it includes an old enough release; otherwise wait for the
+  version to age, or exclude `@hexclave/*` from the age rule.
 - Cloud Run answers `/healthz` itself, so don't use that path for your own health check.

@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
-const TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
+const TOKEN = process.env.DASHBOARD_API_TOKEN ?? "";
 const ADMIN_HEADER = "x-dashboard-admin";
 const PRIVATE = { "cache-control": "no-store" };
 
@@ -42,7 +42,7 @@ export function dashboardRoutes(backend: DashboardBackend) {
       return found ? json(found) : json({ error: "not found" }, 404);
     }
     if (request.method === "POST" && item[2]) {
-      const body = noteSchema.safeParse(await request.json());
+      const body = noteSchema.safeParse(await request.json().catch(() => null));
       if (!body.success) return json({ error: "bad request" }, 400);
       console.info("[dashboard] act", id, admin);
       return json(await backend.act(id, body.data.text, admin));

@@ -5,7 +5,7 @@ browser ──HTTPS──▶ dashboard (public serverless, Bun)
    │                 │  1. getUser({ tokenStore: request })   ──▶ Hexclave API
    │                 │  2. verified email + hasPermission(p)
    │                 │  3. forward /api/x → /internal/dashboard/x
-   │                 ▼     Authorization: Bearer <internal token>, x-dashboard-admin: <email>
+   │                 ▼     Authorization: Bearer <dashboard token>, x-dashboard-admin: <email>
    │              backend (private server) ──▶ database, queues, agents…
    │
    └──hosted sign-in──▶ Hexclave hosted pages ──back to a trusted domain──▶ dashboard
