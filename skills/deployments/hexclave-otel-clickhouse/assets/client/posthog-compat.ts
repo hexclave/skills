@@ -5,8 +5,9 @@
 // posthogVariant(flagKey, distinctId, rolloutPercent, variants): PostHog's own bucketing
 //   (sha1("<key>.<id><salt>"), first 15 hex digits over 0xfffffffffffffff, salt "" for the
 //   rollout and "variant" for the variant), so everyone stays in the variant PostHog gave them.
-//   Verified against 1,318 of 1,318 recorded exposures.
-const SCALE = 0xfffffffffffffffn;
+//   Verified against 1,318 of 1,318 recorded exposures. Float math as in PostHog, so fractional
+//   percentages (33.33) bucket the same way.
+const LONG_SCALE = 0xfffffffffffffff;
 
 export function legacyDistinctId(projectToken: string): string | null {
   const key = `ph_${projectToken}_posthog`;
@@ -30,10 +31,10 @@ export function legacyDistinctId(projectToken: string): string | null {
   }
 }
 
-async function hash(key: string, id: string, salt: string): Promise<bigint> {
+async function hash(key: string, id: string, salt: string): Promise<number> {
   const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`${key}.${id}${salt}`));
   const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
-  return BigInt(`0x${hex.slice(0, 15)}`);
+  return Number(BigInt(`0x${hex.slice(0, 15)}`)) / LONG_SCALE;
 }
 
 export async function posthogVariant(
@@ -42,12 +43,12 @@ export async function posthogVariant(
   rolloutPercent: number,
   variants: { key: string; rollout: number }[],
 ): Promise<string | null> {
-  if (rolloutPercent < 100 && (await hash(flagKey, distinctId, "")) * 100n > BigInt(rolloutPercent) * SCALE) return null;
-  const h = (await hash(flagKey, distinctId, "variant")) * 100n;
+  if ((await hash(flagKey, distinctId, "")) > rolloutPercent / 100) return null;
+  const h = await hash(flagKey, distinctId, "variant");
   let cumulative = 0;
   for (const v of variants) {
-    cumulative += v.rollout;
-    if (h < BigInt(cumulative) * SCALE) return v.key;
+    cumulative += v.rollout / 100;
+    if (h < cumulative) return v.key;
   }
   return null;
 }

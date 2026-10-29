@@ -5,6 +5,8 @@
 !Dockerfile
 !app/
 !app/**
+app/.env*
+app/.npmrc
 app/node_modules
 app/dist
 app/.output

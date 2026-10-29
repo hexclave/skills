@@ -37,7 +37,7 @@ browser gave up, and the dashboard showed nothing. `assets/dashboard/clickhouse.
 | One server-wide gate | at most 2 queries in flight; identical SQL joins the running query |
 | Cache | 5 min fresh, then stale-while-revalidate; kept 6 h; LRU capped at 300 entries / 64 MB |
 | Stable cache keys | quantize time windows to 5 minutes, so a reload hits the cache |
-| Per-query limits | `max_execution_time=15`, `max_memory_usage=500000000`, client timeout 20 s; show error 159 as a timeout |
+| Per-query limits | `max_execution_time=15`, `max_memory_usage=500000000`, `max_result_rows=100000`, `max_result_bytes=20000000` (bounds the body the dashboard parses), client timeout 20 s; show error 159 as a timeout, 396 as too many rows |
 | Cancellation | the request's `AbortSignal` aborts the fetch once the last waiter leaves; `cancel_http_readonly_queries_on_client_close=1` stops the server side |
 | Query shape | every query filters on the event and the timestamp; the previous period rides in the same scan (`-If` combinators, `GROUPING SETS`); breakdowns fold into one `arrayJoin` query; `uniq` over `uniqExact` |
 | UI | each section loads on its own with a skeleton, and a failed one shows its error inline with a retry |

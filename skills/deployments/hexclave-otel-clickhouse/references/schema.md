@@ -62,14 +62,28 @@ ALTER TABLE otel.otel_logs
     ADD COLUMN IF NOT EXISTS Country LowCardinality(String) MATERIALIZED LogAttributes['country'];
 ```
 
-`ADD COLUMN ... MATERIALIZED` fills new parts only. Backfill old parts once with
-`ALTER TABLE ... MATERIALIZE COLUMN ...` from the start script, and only while some active part
-lacks the column (`system.parts` vs `system.parts_columns`) and no mutation is pending. Otherwise
-every restart rewrites the whole table again. Don't put `MATERIALIZE COLUMN` in the boot schema.
+`ADD COLUMN ... MATERIALIZED` fills new parts only, and `10-hexclave-schema.sh` doesn't
+backfill. Do it once by hand (`clickhouse-client` as `admin`), after checking that some active part
+still lacks the column and no mutation is pending:
+
+```sql
+SELECT count() FROM system.parts
+WHERE database = 'otel' AND table = 'otel_logs' AND active
+  AND name NOT IN (SELECT name FROM system.parts_columns
+                   WHERE database = 'otel' AND table = 'otel_logs' AND active AND column = 'Host');
+SELECT count() FROM system.mutations WHERE database = 'otel' AND table = 'otel_logs' AND NOT is_done;
+
+ALTER TABLE otel.otel_logs MATERIALIZE COLUMN Host, MATERIALIZE COLUMN Country;  -- a mutation
+```
+
+If you script it, keep both checks: an unconditional `MATERIALIZE COLUMN` in the boot schema
+rewrites the whole table on every restart.
 
 Two more rules that paid off:
-- Filter on the leading order-key column first (the event name, the service), then on time. That
-  alone halved a query (370 → 180 ms).
+- Constrain the table's leading `ORDER BY` columns. `otel_logs` leads with
+  `toStartOfFiveMinutes(Timestamp)`, then `ServiceName`, so a time range comes first there; a table
+  ordered by event name (like `posthog.events` in the migration) needs the event filter. Matching
+  the key alone halved a query (370 → 180 ms).
 - Don't read a `ReplacingMergeTree` with `FINAL` once its data is frozen and known to be
   duplicate-free. `FINAL` stopped partition pruning: 820 → 370 ms and 480 → 240 ms without it.
 
