@@ -12,6 +12,9 @@ const SETTINGS = {
   max_execution_time: "15",
   cancel_http_readonly_queries_on_client_close: "1",
   max_memory_usage: "500000000",
+  // Bounds what this process has to buffer and parse: res.json() reads the whole body.
+  max_result_rows: "100000",
+  max_result_bytes: "20000000",
   output_format_json_quote_64bit_integers: "0",
 };
 
@@ -66,6 +69,7 @@ async function execute(job: Job): Promise<Rows> {
     if (/^\s*</.test(text)) throw new Error(`ClickHouse is unavailable right now (HTTP ${res.status}).`);
     const code = /Code: (\d+)/.exec(text)?.[1];
     if (code === "159") throw new Error("ClickHouse took longer than 15 s on this, so it was stopped. It will be retried.");
+    if (code === "396") throw new Error("This query returns more rows than the dashboard reads. Aggregate it or add a LIMIT.");
     throw new Error(`ClickHouse ${res.status}: ${text.slice(0, 240).replace(/\s+/g, " ")}`);
   }
   const body = (await res.json()) as { data: Rows; statistics?: { elapsed?: number; rows_read?: number; bytes_read?: number } };
@@ -127,10 +131,10 @@ function refreshInBackground(sql: string, policy: CachePolicy) {
 export function query(sql: string, signal?: AbortSignal, policy: CachePolicy = DEFAULT_POLICY): Promise<Rows> {
   const now = Date.now();
   const hit = cache.get(sql);
-  if (hit && now - hit.at < hit.policy.keepMs) {
+  if (hit && now - hit.at < policy.keepMs) {
     cache.delete(sql);
     cache.set(sql, hit);
-    if (now - hit.at >= hit.policy.freshMs) refreshInBackground(sql, policy);
+    if (now - hit.at >= policy.freshMs) refreshInBackground(sql, policy);
     return Promise.resolve(hit.rows);
   }
   if (hit) forget(sql);

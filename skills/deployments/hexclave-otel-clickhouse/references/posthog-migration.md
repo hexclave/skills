@@ -38,7 +38,7 @@ available, `execute-sql` (HogQL) works, within two limits:
                   ',"person_id":', toJSONString(toString(person_id)),
                   ',"properties":', if(properties = '', '{}', toString(properties)), '}') AS j
     FROM events
-    WHERE timestamp >= {window_start} AND timestamp < {window_end}
+    WHERE timestamp >= {window_start} AND timestamp < {window_end} AND created_at < {C0}
     ORDER BY timestamp, uuid
   )
   ```
@@ -64,6 +64,9 @@ CLICKHOUSE_URL=https://<your proxy>/_ch/ CLICKHOUSE_USER=importer CLICKHOUSE_PAS
 
 - Use a dedicated `importer` ClickHouse user with `INSERT` (and `SELECT`, for checking) on the history
   table only. Remove the user and its grants once the migration is closed.
+- The `/_ch/` route in `assets/edge/nginx-telemetry.conf` lets only `reader` through. For the load,
+  add `"importer:" 1;` to its `$ch_auth_ok` map (the script sends `X-ClickHouse-User`), and take
+  it out again with the user.
 - The table is a `ReplacingMergeTree` keyed on `(event, toDate(timestamp), uuid)`, so re-runs and
   overlapping files are safe. Count with `uniqExact(uuid)` or `FINAL`.
 - Property values are stored as strings: JSON values become their JSON text (`true`, `12`), and nulls
@@ -74,16 +77,18 @@ CLICKHOUSE_URL=https://<your proxy>/_ch/ CLICKHOUSE_USER=importer CLICKHOUSE_PAS
 
 The site keeps sending to PostHog until the new sender is live, so the history is exported in passes:
 
-1. **Bulk:** `timestamp < T0` (T0 just before the export starts).
+1. **Bulk:** everything received before C0 (`created_at < C0`, C0 just before the export starts),
+   in event-time windows that run up to now.
 2. Deploy the stack, deploy the site routes, and test them live.
 3. Switch the senders (site, app, any server-side mirrors).
-4. **Deltas by receive time, not event time:** `created_at >= <bulk export start> AND created_at < T1`,
+4. **Deltas by receive time, not event time:** `created_at >= C0 - INTERVAL 1 HOUR AND created_at < T1`,
    with T1 after the switch. Make passes overlap; the uuid key removes the duplicates.
 
-Why receive time: events reach PostHog late. Here, 9 update-check events dated midnight (the
-sender only knew the date) arrived after the bulk export. And 68 events dated after T0 but received
-before the bulk export started fell into neither pass until the delta used `created_at`. HogQL's
-`events` table has `created_at` but no `inserted_at` or `_timestamp`.
+Why one receive-time cutoff: events reach PostHog late. Here, 9 update-check events dated midnight
+(the sender only knew the date) arrived after the bulk export. And while the bulk cut on event time
+and the delta on receive time, 68 events dated after the bulk's cutoff but received before the bulk
+export started fell into neither pass. HogQL's `events` table has `created_at` but no `inserted_at`
+or `_timestamp`.
 
 Reconcile on both sides with the same windows: total, `uniqExact(uuid)`, a per-event `GROUP BY event`,
 and the numbers your reports actually show (visitors, conversions). Stop when all of them match.
