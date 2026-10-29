@@ -13,7 +13,7 @@ export const deploy: HexclaveDeploymentConfig = ({ isDev, secret, service, hexcl
       rootDirectory: ".",
       dockerfilePath: "infra/docker/backend.Dockerfile",
       env: {
-        INTERNAL_API_TOKEN: isDev ? null : secret("INTERNAL_API_TOKEN"),
+        DASHBOARD_API_TOKEN: isDev ? null : secret("DASHBOARD_API_TOKEN"),
       },
     },
     dashboard: {
@@ -29,7 +29,7 @@ export const deploy: HexclaveDeploymentConfig = ({ isDev, secret, service, hexcl
         PORT: "8080",
         DASHBOARD_PERMISSION: "admin_dashboard",
         DASHBOARD_BACKEND_URL: isDev ? null : service("backend").url(3000),
-        DASHBOARD_BACKEND_TOKEN: isDev ? null : secret("INTERNAL_API_TOKEN"),
+        DASHBOARD_BACKEND_TOKEN: isDev ? null : secret("DASHBOARD_API_TOKEN"),
         HEXCLAVE_PROJECT_ID: hexclave.projectId,
         HEXCLAVE_API_URL: hexclave.apiUrl,
         HEXCLAVE_SECRET_SERVER_KEY: hexclave.secretServerKey,

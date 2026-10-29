@@ -27,6 +27,9 @@ session per conversation address; other agent frameworks have the same pieces.
   same channel `send`. The agent acts with that person's rights, and anything that needs their
   approval still asks them. Tell the agent in its instructions what the tag means, that the
   person can't see it, and to write whatever it sends for the person.
+- **Only instruct an idle conversation.** If the person's turn is waiting on an approval card or a
+  question (`turn.waiting` on `input`), a new message can be taken as their answer. Wait, or stop
+  the turn first.
 - **Stop**: `from(address).cancel()`: cooperative cancellation of the active turn.
   Returns `accepted` or `no_active_turn`.
 - **Start over**: `from(address).reset({ reason })`: like the person sending `/new`.

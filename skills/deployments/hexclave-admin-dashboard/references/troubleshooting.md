@@ -13,8 +13,8 @@
 | A "Hexclave Dev Tools" button on the page | Dev tools default on in development | `devTool: false` |
 | Dashboard can't reach the backend (connection refused, timeouts) | Backend is a private `serverless` service on GCP, or it redeployed after the dashboard and changed IP | Make the backend a `server`; redeploy the dashboard after the backend, in the same group |
 | `Invalid project ID` at startup | `HEXCLAVE_PROJECT_ID` isn't a UUID | Pass `hexclave.projectId` in the deploy file |
-| `minimum release age` refusing `@hexclave/js` | npm or Bun `minimumReleaseAge` | Use a range, or exclude `@hexclave/*` from the rule |
+| `minimum release age` refusing `@hexclave/js` | npm or Bun `minimumReleaseAge` | Use a range if it includes an old enough release; otherwise wait, or exclude `@hexclave/*` from the rule |
 | Page loads without styles in production | Tailwind plugin not configured for `Bun.serve` HTML imports | `bunfig.toml`: `[serve.static] plugins = ["bun-plugin-tailwind"]`, next to `package.json` |
 | First request after idle takes several seconds | `minInstances: 0`: start-up plus Bun bundling the page | Accept it, or `minInstances: 1` (billed always on) |
 | `/healthz` returns 404 | Cloud Run reserves it | Use another path |
-| Files missing from the image | Deploy packaging skips `.gitignore`d files | Don't depend on ignored files, or un-ignore them in `.dockerignore` |
+| Files missing from the image | Deploy packaging skips `.gitignore`d files | Don't depend on ignored files, or un-ignore them with a `!path` rule in a `.dockerignore` in the same directory (packaging reads `.gitignore`, then `.dockerignore`, with git semantics) |

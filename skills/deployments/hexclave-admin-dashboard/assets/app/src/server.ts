@@ -49,8 +49,10 @@ async function api(request: Request) {
         "x-dashboard-admin": who.email,
       },
       body: request.method === "POST" ? await request.text() : undefined,
+      signal: AbortSignal.timeout(9_000), // under Bun.serve's 10 s idle timeout
     },
-  );
+  ).catch(() => null);
+  if (!upstream) return json({ error: "Backend unavailable." }, 502);
   return new Response(upstream.body, {
     status: upstream.status,
     headers: { ...PRIVATE, "content-type": "application/json" },
